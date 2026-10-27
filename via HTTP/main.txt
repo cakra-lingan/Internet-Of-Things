@@ -1,0 +1,45 @@
+#include <WiFi.h>
+#include <WebServer.h>
+#include <DHT.h>
+
+const char* ssid = "NAMA_WIFI";
+const char* password = "PASSWORD_WIFI";
+
+#define DHTPIN 4
+#define DHTTYPE DHT22
+
+DHT dht(DHTPIN, DHTTYPE);
+WebServer server(80);
+
+void handleTemp() {
+  float suhu = dht.readTemperature();
+  float kelembapan = dht.readHumidity();
+
+  if (isnan(suhu) || isnan(kelembapan)) {
+    server.send(500, "application/json", "{\"error\":\"gagal membaca DHT22\"}");
+    return;
+  }
+
+  String json = "{\"suhu\":" + String(suhu, 1) +
+                ",\"kelembapan\":" + String(kelembapan, 1) + "}";
+  server.send(200, "application/json", json);
+}
+
+void setup() {
+  Serial.begin(115200);
+  dht.begin();
+
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nTerhubung! IP: " + WiFi.localIP().toString());
+
+  server.on("/temp", handleTemp);
+  server.begin();
+}
+
+void loop() {
+  server.handleClient();
+}
