@@ -1,0 +1,50 @@
+#include <WiFi.h>
+#include <WiFiUdp.h>
+#include <coap-simple.h>
+#include <DHT.h>
+
+const char* ssid = "NAMA_WIFI";
+const char* password = "PASSWORD_WIFI";
+
+#define DHTPIN 4
+#define DHTTYPE DHT22
+DHT dht(DHTPIN, DHTTYPE);
+
+WiFiUDP udp;
+Coap coap(udp);
+
+// Callback saat ada request GET ke /suhu
+void callback_suhu(CoapPacket &packet, IPAddress ip, int port) {
+  float suhu = dht.readTemperature();
+  char payload[16];
+
+  if (isnan(suhu)) {
+    snprintf(payload, sizeof(payload), "error");
+  } else {
+    snprintf(payload, sizeof(payload), "%.1f", suhu);
+  }
+
+  coap.sendResponse(ip, port, packet.messageid, payload);
+}
+
+void setup() {
+  Serial.begin(115200);
+  dht.begin();
+
+  WiFi.begin(ssid, password);
+  Serial.print("Menyambung ke WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+  Serial.print("IP ESP32: ");
+  Serial.println(WiFi.localIP());
+
+  coap.server(callback_suhu, "suhu");
+  coap.start();
+}
+
+void loop() {
+  coap.loop();
+}
