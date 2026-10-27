@@ -11,3 +11,8 @@ Protokol ini bekerja mirip HTTP (menggunakan metode GET, POST, PUT, DELETE dan f
 2. Sambungkan sensor
 DHT22: pin VCC ke 3.3V, GND ke GND, dan pin DATA ke GPIO 4.
 
+3. Upload dan cek
+- Upload sketch, lalu buka Serial Monitor dengan baud rate 115200. Catat IP yang muncul, misalnya 192.168.1.50.
+
+4. Tes dengan perintah terminal
+   aiocoap-client coap://192.168.1.50/suhu
