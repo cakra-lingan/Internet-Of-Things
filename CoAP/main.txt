@@ -5,8 +5,8 @@
 #include "DHT.h"
 
 // Pengaturan Wi-Fi
-const char* ssid = "KOST BU TATI";
-const char* password = "niko2025";
+const char* ssid = "NAMA_WIFI";
+const char* password = "PASSWORD_WIFI";
 
 // Pengaturan Sensor DHT22
 #define DHTPIN 4
