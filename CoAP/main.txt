@@ -1,50 +1,91 @@
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <coap-simple.h>
-#include <DHT.h>
+#include <string.h>
+#include "DHT.h"
 
-const char* ssid = "NAMA_WIFI";
-const char* password = "PASSWORD_WIFI";
+// Pengaturan Wi-Fi
+const char* ssid = "KOST BU TATI";
+const char* password = "niko2025";
 
+// Pengaturan Sensor DHT22
 #define DHTPIN 4
 #define DHTTYPE DHT22
 DHT dht(DHTPIN, DHTTYPE);
 
+// Inisialisasi UDP dan CoAP
 WiFiUDP udp;
 Coap coap(udp);
 
-// Callback saat ada request GET ke /suhu
-void callback_suhu(CoapPacket &packet, IPAddress ip, int port) {
-  float suhu = dht.readTemperature();
-  char payload[16];
+void send_text_response(CoapPacket &packet, IPAddress ip, int port, const char* text) {
+  uint16_t responseId = coap.sendResponse(
+      ip, port, packet.messageid, text, strlen(text),
+      COAP_CONTENT, COAP_TEXT_PLAIN, packet.token, packet.tokenlen);
+  Serial.print("Percobaan kirim respons CoAP, MID=");
+  Serial.print(responseId);
+  Serial.print(", panjang token=");
+  Serial.println(packet.tokenlen);
+}
 
-  if (isnan(suhu)) {
-    snprintf(payload, sizeof(payload), "error");
-  } else {
-    snprintf(payload, sizeof(payload), "%.1f", suhu);
+// Callback untuk merespons request GET /temp
+void callback_get_temp(CoapPacket &packet, IPAddress ip, int port) {
+  Serial.print("Request /temp diterima dari ");
+  Serial.println(ip);
+  float temp = dht.readTemperature();
+  
+  if (isnan(temp)) {
+    send_text_response(packet, ip, port, "Gagal membaca suhu");
+    return;
   }
 
-  coap.sendResponse(ip, port, packet.messageid, payload);
+  char responseText[16];
+  snprintf(responseText, sizeof(responseText), "%.2f C", temp);
+  
+  send_text_response(packet, ip, port, responseText);
+}
+
+// Callback untuk merespons request GET /humidity
+void callback_get_humidity(CoapPacket &packet, IPAddress ip, int port) {
+  Serial.print("Request /humidity diterima dari ");
+  Serial.println(ip);
+  float hum = dht.readHumidity();
+  
+  if (isnan(hum)) {
+    send_text_response(packet, ip, port, "Gagal membaca kelembapan");
+    return;
+  }
+
+  char responseText[16];
+  snprintf(responseText, sizeof(responseText), "%.2f %%", hum);
+  
+  send_text_response(packet, ip, port, responseText);
 }
 
 void setup() {
   Serial.begin(115200);
   dht.begin();
 
+  // Koneksi ke Wi-Fi
+  Serial.print("Menghubungkan ke WiFi");
   WiFi.begin(ssid, password);
-  Serial.print("Menyambung ke WiFi");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println();
-  Serial.print("IP ESP32: ");
+  Serial.println("\nWiFi Terhubung!");
+  Serial.print("IP Address ESP32: ");
   Serial.println(WiFi.localIP());
 
-  coap.server(callback_suhu, "suhu");
+  // Mendaftarkan Endpoint CoAP
+  coap.server(callback_get_temp, "temp");
+  coap.server(callback_get_humidity, "humidity");
+
+  // Jalankan CoAP Server
   coap.start();
+  Serial.println("CoAP Server Berjalan di port 5683...");
 }
 
 void loop() {
+  // Selalu jalankan loop CoAP untuk mendengarkan request masuk
   coap.loop();
 }
